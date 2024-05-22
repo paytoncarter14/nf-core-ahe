@@ -10,7 +10,7 @@
             "type": "object",
             "fa_icon": "fas fa-terminal",
             "description": "Define where the pipeline should find input data and save output data.",
-            "required": ["input", "outdir"],
+            "required": ["input", "outdir", "probes"],
             "properties": {
                 "input": {
                     "type": "string",
@@ -28,6 +28,11 @@
                     "format": "directory-path",
                     "description": "The output directory where the results will be saved. You have to use absolute paths to storage on Cloud infrastructure.",
                     "fa_icon": "fas fa-folder-open"
+                },
+                "probes": {
+                    "type": "string",
+                    "description": "A FASTA of probe sequences used for AHE",
+                    "fa_icon": "far fa-file-code"
                 },
                 "email": {
                     "type": "string",

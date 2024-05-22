@@ -4,8 +4,14 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 */
 
-include { FASTQC                 } from '../modules/nf-core/fastqc/main'
+// Subworkflows
+include { AHE_ASSEMBLY           } from '../subworkflows/local/ahe_assembly/main'
+
+// Modules
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
+include { FASTP                  } from '../modules/nf-core/fastp/main'
+
+// Boilerplate
 include { paramsSummaryMap       } from 'plugin/nf-validation'
 include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
 include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
@@ -28,13 +34,25 @@ workflow AHE {
     ch_multiqc_files = Channel.empty()
 
     //
-    // MODULE: Run FastQC
+    // MODULE: fastp
     //
-    FASTQC (
-        ch_samplesheet
+    FASTP (
+        ch_samplesheet,
+        [],
+        false,
+        false
     )
-    ch_multiqc_files = ch_multiqc_files.mix(FASTQC.out.zip.collect{it[1]})
-    ch_versions = ch_versions.mix(FASTQC.out.versions.first())
+    ch_multiqc_files = ch_multiqc_files.mix(FASTP.out.json.collect{it[1]})
+    ch_versions = ch_versions.mix(FASTP.out.versions.first())
+
+    //
+    // SUBWORKFLOW: ahe_assembly
+    //
+    AHE_ASSEMBLY (
+        FASTP.out.reads,
+        params.probes
+    )
+
 
     //
     // Collate and save software versions
@@ -48,7 +66,7 @@ workflow AHE {
         ).set { ch_collated_versions }
 
     //
-    // MODULE: MultiQC
+    // MODULE: MultiQC and template boilerplate
     //
     ch_multiqc_config        = Channel.fromPath(
         "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
