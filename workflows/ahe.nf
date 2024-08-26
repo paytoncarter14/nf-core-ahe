@@ -10,6 +10,10 @@ include { AHE_ASSEMBLY           } from '../subworkflows/local/ahe_assembly/main
 // Modules
 include { MULTIQC                } from '../modules/nf-core/multiqc/main'
 include { FASTP                  } from '../modules/nf-core/fastp/main'
+include { BLAST_MAKEBLASTDB      } from '../modules/nf-core/blast/makeblastdb/main'
+include { BLAST_BLASTN           } from '../modules/nf-core/blast/blastn/main'
+include { GNU_SORT               } from '../modules/nf-core/gnu/sort/main'
+include { GNU_SORT as GNU_SORT2  } from '../modules/nf-core/gnu/sort/main'
 
 // Boilerplate
 include { paramsSummaryMap       } from 'plugin/nf-validation'
@@ -33,9 +37,7 @@ workflow AHE {
     ch_versions = Channel.empty()
     ch_multiqc_files = Channel.empty()
 
-    //
     // MODULE: fastp
-    //
     FASTP (
         ch_samplesheet,
         [],
@@ -45,18 +47,32 @@ workflow AHE {
     ch_multiqc_files = ch_multiqc_files.mix(FASTP.out.json.collect{it[1]})
     ch_versions = ch_versions.mix(FASTP.out.versions.first())
 
-    //
-    // SUBWORKFLOW: ahe_assembly
-    //
+    // make reference genome blast db
+    BLAST_MAKEBLASTDB ( Channel.fromPath(params.genome_db).map{[[id: it.baseName], it]} )
+    ch_versions = ch_versions.mix(BLAST_MAKEBLASTDB.out.versions.first())
+
+    // blastn probes to reference genome
+    BLAST_BLASTN ( Channel.fromPath(params.probes).map{[[id: it.baseName], it]}, BLAST_MAKEBLASTDB.out.db )
+    ch_versions = ch_versions.mix(BLAST_BLASTN.out.versions.first())
+
+    // sort probe/reference hits by bitscore
+    GNU_SORT ( BLAST_BLASTN.out.txt )
+    ch_versions = ch_versions.mix(GNU_SORT.out.versions.first())
+
+    // keep only best probe/reference hit by bitscore
+    GNU_SORT2 (GNU_SORT.out.sorted)
+    ch_versions = ch_versions.mix(GNU_SORT2.out.versions.first())
+
+    // subworkflow: ahe_assembly
     AHE_ASSEMBLY (
         FASTP.out.reads,
-        params.probes
+        params.probes,
+        BLAST_MAKEBLASTDB.out.db.first(),
+        GNU_SORT2.out.sorted.first()
     )
 
 
-    //
     // Collate and save software versions
-    //
     softwareVersionsToYAML(ch_versions)
         .collectFile(
             storeDir: "${params.outdir}/pipeline_info",
@@ -65,9 +81,7 @@ workflow AHE {
             newLine: true
         ).set { ch_collated_versions }
 
-    //
     // MODULE: MultiQC and template boilerplate
-    //
     ch_multiqc_config        = Channel.fromPath(
         "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
     ch_multiqc_custom_config = params.multiqc_config ?

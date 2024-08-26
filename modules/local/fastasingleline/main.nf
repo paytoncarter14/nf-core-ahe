@@ -6,7 +6,7 @@ process FASTASINGLELINE {
     tuple val(meta), path(fasta)
 
     output:
-    tuple val(meta), path("*.fasta"), emit: fasta
+    tuple val(meta), path("*.fa"), emit: fasta
     path "versions.yml"           , emit: versions
 
     when:
@@ -19,7 +19,7 @@ process FASTASINGLELINE {
     if ("${fasta}" == "${prefix}.fa") error "Input and output names are the same, set prefix in module configuration to disambiguate!"
 
     """
-    zcat -f ${fasta} | perl -pe '\$. > 1 and /^>/ ? print "\n" : chomp' > ${prefix}.fa
+    zcat -f ${fasta} | perl -pe '\$. > 1 and /^>/ ? print "\\n" : chomp' > ${prefix}.fa
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

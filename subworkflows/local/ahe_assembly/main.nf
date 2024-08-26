@@ -9,39 +9,80 @@ include { VSEARCH_CLUSTER   } from '../../../modules/nf-core/vsearch/cluster/mai
 include { VSEARCH_SORT      } from '../../../modules/nf-core/vsearch/sort/main'
 include { BLAST_MAKEBLASTDB } from '../../../modules/nf-core/blast/makeblastdb/main'
 include { BLAST_TBLASTX     } from '../../../modules/local/blast_tblastx/main'
+include { BLAST_TBLASTX
+          as BLAST_TBLASTX2 } from '../../../modules/local/blast_tblastx/main'
 include { BITSCOREFILTER    } from '../../../modules/local/bitscorefilter/main'
 include { FASTASINGLELINE   } from '../../../modules/local/fastasingleline/main'
+include { BLASTTOBED        } from '../../../modules/local/blasttobed/main'
+include { BEDTOOLS_GETFASTA } from '../../../modules/nf-core/bedtools/getfasta/main'
+include { SIMPLECAT         } from '../../../modules/local/simplecat/main'
+include { GNU_SORT
+          as GNU_SORT3      } from '../../../modules/nf-core/gnu/sort/main'
+include { GNU_SORT
+          as GNU_SORT4      } from '../../../modules/nf-core/gnu/sort/main'
 
 workflow AHE_ASSEMBLY {
 
     take:
     ch_reads  // channel (mandatory): [ val(meta), [ path(reads) ] ]
     probes // path (mandatory)
+    genome_db
+    probe_coordinates
 
     main:
 
     ch_versions = Channel.empty()
 
+    // assemble reads
     SPADES ( ch_reads.map{[it[0], it[1], [], []]}, [], [] )
     ch_versions = ch_versions.mix(SPADES.out.versions.first())
 
+    // collapse similar scaffolds
     VSEARCH_CLUSTER ( SPADES.out.scaffolds )
     ch_versions = ch_versions.mix(VSEARCH_CLUSTER.out.versions.first())
 
+    // sort scaffolds
     VSEARCH_SORT ( VSEARCH_CLUSTER.out.centroids, '--sortbylength')
     ch_versions = ch_versions.mix(VSEARCH_SORT.out.versions.first())
 
+    // make blast db from scaffolds
     BLAST_MAKEBLASTDB ( VSEARCH_SORT.out.fasta )
     ch_versions = ch_versions.mix(BLAST_MAKEBLASTDB.out.versions.first())
 
-    BLAST_TBLASTX (BLAST_MAKEBLASTDB.out.db.map{[it[0], file(probes)]}, BLAST_MAKEBLASTDB.out.db )
+    // tblastx probe sequences (query) to scaffolds (db)
+    BLAST_TBLASTX ( BLAST_MAKEBLASTDB.out.db.map{[it[0], file(probes)]}, BLAST_MAKEBLASTDB.out.db )
     ch_versions = ch_versions.mix(BLAST_TBLASTX.out.versions.first())
 
-    BITSCOREFILTER (BLAST_TBLASTX.out.txt)
+    // keep sequences with bit scores at least 80% of top bit score
+    BITSCOREFILTER ( BLAST_TBLASTX.out.txt )
     ch_versions = ch_versions.mix(BITSCOREFILTER.out.versions.first())
 
-    FASTASINGLELINE ( VSEARCH_SORT.out.fasta )
-    ch_versions = ch_versions.mix(FASTASINGLELINE.out.versions.first())
+    // put scaffold sequences on single line
+    // FASTASINGLELINE ( VSEARCH_SORT.out.fasta )
+    // ch_versions = ch_versions.mix(FASTASINGLELINE.out.versions.first())
+
+    // transform blast output to bed for bedtools
+    BLASTTOBED ( BITSCOREFILTER.out.txt )
+    ch_versions = ch_versions.mix(BLASTTOBED.out.versions.first())
+
+    // pull regions of scaffold sequences that had tblastx probe hits
+    together = BLASTTOBED.out.bed.join(VSEARCH_SORT.out.fasta)
+    BEDTOOLS_GETFASTA ( together.map{it[0..1]}, together.map{it[2]} )
+    ch_versions = ch_versions.mix(BEDTOOLS_GETFASTA.out.versions.first())
+
+    // tblastx putative orthologs (query) to reference genome (db)
+    BLAST_TBLASTX2 ( BEDTOOLS_GETFASTA.out.fasta, genome_db )
+    ch_versions = ch_versions.mix(BLAST_TBLASTX2.out.versions.first())
+
+    // keep only top hit by bitscore
+    GNU_SORT3 ( BLAST_TBLASTX2.out.txt )
+    GNU_SORT4 ( GNU_SORT3.out.sorted )
+
+    // concat ortholog/genome tblastx top hit to probes
+    SIMPLECAT ( GNU_SORT4.out.sorted, probe_coordinates )
+    ch_versions = ch_versions.mix(SIMPLECAT.out.versions.first())
+
+
 
     emit:
     // TODO nf-core: edit emitted channels
