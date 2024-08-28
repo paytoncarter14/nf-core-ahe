@@ -1,17 +1,12 @@
+#!/usr/bin/env python3
+
 import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--probe_blast', required=True, help='Results of probe sequence blast to reference genome, specified in blast 6 format, one hit per locus')
 parser.add_argument('--assembly_blast', required=True, help='Results of assembly scaffold blast to reference genome, specified in blast 6 format')
-parser.add_argument('--locus_key', required=True, help='Tab-separated file with two columns. Column one is locus key, column two is assembly scaffold.')
 
 args = parser.parse_args()
-
-with open(args.locus_key, 'r') as f:
-    key = {}
-    for line in f.readlines():
-        locus, scaffold = line.strip().split('\t')
-        key[scaffold] = locus
 
 # qseqid                sseqid          pident  length  mismatch    gapopen qstart  qend    sstart      send        evalue  bitscore
 # L100__lampyridae_R    NW_022170509.1  100.000 738     0           0       1       738     21766757    21767494    0.0     1363
@@ -33,7 +28,7 @@ with open(args.assembly_blast, 'r') as f:
             direction = 0
         else:
             direction = 1 
-        scaffolds[qseqid] = {'locus': key[qseqid.split(':')[0]], 'start': sstart, 'end': send, 'direction': direction}
+        scaffolds[qseqid] = {'locus': qseqid.split(':')[0], 'start': sstart, 'end': send, 'direction': direction}
 
 keep = set()
 for probe, probe_values in probes.items():
@@ -47,5 +42,6 @@ for probe, probe_values in probes.items():
             if scaffold_min <= probe_max or scaffold_max >= probe_min:
                 keep.add(scaffold)
 
-for scaffold in keep:
-    print(f'{scaffold}\t{key[scaffold.split(':')[0]]}')
+print(scaffold)
+
+for scaffold in keep: print(scaffold)

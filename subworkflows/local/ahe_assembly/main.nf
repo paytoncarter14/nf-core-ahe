@@ -20,6 +20,7 @@ include { GNU_SORT
           as GNU_SORT3      } from '../../../modules/nf-core/gnu/sort/main'
 include { GNU_SORT
           as GNU_SORT4      } from '../../../modules/nf-core/gnu/sort/main'
+include { ORTHOLOGFILTER    } from '../../../modules/local/orthologfilter/main'
 
 workflow AHE_ASSEMBLY {
 
@@ -77,12 +78,16 @@ workflow AHE_ASSEMBLY {
     // keep only top ortholog/reference hit by bitscore for each ortholog
     GNU_SORT3 ( BLAST_TBLASTX2.out.txt )
     GNU_SORT4 ( GNU_SORT3.out.sorted )
+    ch_versions = ch_versions.mix(GNU_SORT3.out.versions.first())
+    ch_versions = ch_versions.mix(GNU_SORT4.out.versions.first())
 
     // concat ortholog/genome tblastx top hit to probes
     // SIMPLECAT ( GNU_SORT4.out.sorted, probe_coordinates )
     // ch_versions = ch_versions.mix(SIMPLECAT.out.versions.first())
 
-
+    // ortholog filter: make sure putative orthologs intersect the same coordinates as the probe/reference blast
+    ORTHOLOGFILTER ( GNU_SORT4.out.sorted, probe_coordinates )
+    ch_versions = ch_versions.mix(ORTHOLOGFILTER.out.versions.first())
 
     emit:
     // TODO nf-core: edit emitted channels
