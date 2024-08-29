@@ -5,6 +5,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--probe_blast', required=True, help='Results of probe sequence blast to reference genome, specified in blast 6 format, one hit per locus')
 parser.add_argument('--assembly_blast', required=True, help='Results of assembly scaffold blast to reference genome, specified in blast 6 format')
+parser.add_argument('--output_prefix', required=True, help='Prefix that output files will be named with')
 
 args = parser.parse_args()
 
@@ -42,6 +43,11 @@ for probe, probe_values in probes.items():
             if scaffold_min <= probe_max or scaffold_max >= probe_min:
                 keep.add(scaffold)
 
-print(scaffold)
-
-for scaffold in keep: print(scaffold)
+with open(args.output_prefix + '.ortho_probe.bed', 'w') as ortho_probe:
+    with open(args.output_prefix + '.ortho_full.bed', 'w') as ortho_full:
+        for x in keep:
+            locus, _, scaffold, coords = x.split(':')
+            length = scaffold.split('_')[3]
+            probe_start, probe_end = coords.split('-')
+            ortho_probe.write('\t'.join([scaffold, probe_start, probe_end, f'{locus}:{args.output_prefix}']) + '\n')
+            ortho_full.write('\t'.join([scaffold, '0', f'{int(length)-1}', f'{locus}:{args.output_prefix}']) + '\n')

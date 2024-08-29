@@ -38,7 +38,8 @@ process ORTHOLOGFILTER {
     
 
     output:
-    tuple val(meta), path("*.txt"), emit: txt
+    tuple val(meta), path("*ortho_probe.bed"), emit: probe
+    tuple val(meta), path("*ortho_full.bed"), emit: full
     // TODO nf-core: List additional required output channels/values here
     path "versions.yml"           , emit: versions
 
@@ -62,7 +63,7 @@ process ORTHOLOGFILTER {
     orthologfilter.py \\
         --probe_blast ${probe_blast} \\
         --assembly_blast ${assembly_blast} \\
-        > ${prefix}.txt
+        --output_prefix ${prefix}
     
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

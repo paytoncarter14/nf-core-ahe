@@ -21,6 +21,11 @@ include { GNU_SORT
 include { GNU_SORT
           as GNU_SORT4      } from '../../../modules/nf-core/gnu/sort/main'
 include { ORTHOLOGFILTER    } from '../../../modules/local/orthologfilter/main'
+include { BEDTOOLS_GETFASTA
+          as ORTHOLOGS_PROBEGETFASTA } from '../../../modules/nf-core/bedtools/getfasta/main'
+include { BEDTOOLS_GETFASTA
+          as ORTHOLOGS_FULLGETFASTA } from '../../../modules/nf-core/bedtools/getfasta/main'
+
 
 workflow AHE_ASSEMBLY {
 
@@ -89,8 +94,18 @@ workflow AHE_ASSEMBLY {
     ORTHOLOGFILTER ( GNU_SORT4.out.sorted, probe_coordinates )
     ch_versions = ch_versions.mix(ORTHOLOGFILTER.out.versions.first())
 
+    // pull full and probe orthologs
+    probe_together = ORTHOLOGFILTER.out.probe.join(VSEARCH_SORT.out.fasta)
+    full_together = ORTHOLOGFILTER.out.full.join(VSEARCH_SORT.out.fasta)
+    ORTHOLOGS_PROBEGETFASTA ( probe_together.map{it[0..1]}, probe_together.map{it[2]} )
+    ORTHOLOGS_FULLGETFASTA ( full_together.map{it[0..1]}, full_together.map{it[2]} )
+
     emit:
     // TODO nf-core: edit emitted channels
+
+    probe_orthologs = ORTHOLOGS_PROBEGETFASTA.out.fasta
+    full_orthologs = ORTHOLOGS_FULLGETFASTA.out.fasta
+
     // bam      = SAMTOOLS_SORT.out.bam           // channel: [ val(meta), [ bam ] ]
     // bai      = SAMTOOLS_INDEX.out.bai          // channel: [ val(meta), [ bai ] ]
     // csi      = SAMTOOLS_INDEX.out.csi          // channel: [ val(meta), [ csi ] ]
