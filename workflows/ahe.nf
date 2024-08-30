@@ -14,6 +14,9 @@ include { BLAST_MAKEBLASTDB      } from '../modules/nf-core/blast/makeblastdb/ma
 include { BLAST_BLASTN           } from '../modules/nf-core/blast/blastn/main'
 include { GNU_SORT               } from '../modules/nf-core/gnu/sort/main'
 include { GNU_SORT as GNU_SORT2  } from '../modules/nf-core/gnu/sort/main'
+include { GETLOCI                } from '../modules/local/getloci'
+include { SPLITLOCI              } from '../modules/local/splitloci'
+include { STRIPLOCI              } from '../modules/local/striploci'
 
 // Boilerplate
 include { paramsSummaryMap       } from 'plugin/nf-validation'
@@ -71,6 +74,14 @@ workflow AHE {
         GNU_SORT2.out.sorted.first()
     )
 
+    // get loci names
+    GETLOCI ( Channel.fromPath(params.probes) )
+
+    // split orthologs into one fasta per locus
+    SPLITLOCI ( GETLOCI.out.loci.splitCsv().map{it[0]}, AHE_ASSEMBLY.out.probe_orthologs.map{it[1]}.collect() )
+
+    // strip locus and scaffold info
+    STRIPLOCI ( SPLITLOCI.out.locus )
 
     // Collate and save software versions
     softwareVersionsToYAML(ch_versions)
