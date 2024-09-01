@@ -40,6 +40,16 @@
                         "git_sha": "a3cc42943548378b726610f45bb5a79ab3f0b633",
                         "installed_by": ["modules"]
                     },
+                    "iqtree": {
+                        "branch": "master",
+                        "git_sha": "6bcf632393182c27eb0714ff1085194be67d5949",
+                        "installed_by": ["modules"]
+                    },
+                    "mafft": {
+                        "branch": "master",
+                        "git_sha": "64770369d851c45c364e410e052ef9a6c3a7d2bb",
+                        "installed_by": ["modules"]
+                    },
                     "multiqc": {
                         "branch": "master",
                         "git_sha": "b7ebe95761cd389603f9cc0e0dc384c0f663815a",

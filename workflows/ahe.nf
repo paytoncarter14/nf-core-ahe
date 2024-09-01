@@ -17,6 +17,8 @@ include { GNU_SORT as GNU_SORT2  } from '../modules/nf-core/gnu/sort/main'
 include { GETLOCI                } from '../modules/local/getloci'
 include { SPLITLOCI              } from '../modules/local/splitloci'
 include { STRIPLOCI              } from '../modules/local/striploci'
+include { MAFFT                  } from '../modules/nf-core/mafft/main'
+include { IQTREE                 } from '../modules/local/iqtree'
 
 // Boilerplate
 include { paramsSummaryMap       } from 'plugin/nf-validation'
@@ -82,6 +84,13 @@ workflow AHE {
 
     // strip locus and scaffold info
     STRIPLOCI ( SPLITLOCI.out.locus )
+
+    // mafft alignment
+    MAFFT ( STRIPLOCI.out.locus, [ [:], [] ], [ [:], [] ], [ [:], [] ], [ [:], [] ], [ [:], [] ], false )
+
+    // iqtree
+    IQTREE ( MAFFT.out.fas.map{it[1]}.collect() )
+    
 
     // Collate and save software versions
     softwareVersionsToYAML(ch_versions)
