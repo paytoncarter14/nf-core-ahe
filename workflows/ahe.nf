@@ -18,6 +18,7 @@ include { GETLOCI                } from '../modules/local/getloci'
 include { SPLITLOCI              } from '../modules/local/splitloci'
 include { STRIPLOCI              } from '../modules/local/striploci'
 include { MAFFT                  } from '../modules/nf-core/mafft/main'
+include { STRIPR                 } from '../modules/local/stripr'
 include { IQTREE                 } from '../modules/local/iqtree'
 
 // Boilerplate
@@ -88,8 +89,11 @@ workflow AHE {
     // mafft alignment
     MAFFT ( STRIPLOCI.out.locus, [ [:], [] ], [ [:], [] ], [ [:], [] ], [ [:], [] ], [ [:], [] ], false )
 
+    // strip _R_ from reverse complement sequences
+    STRIPR ( MAFFT.out.fas )
+
     // iqtree
-    IQTREE ( MAFFT.out.fas.map{it[1]}.collect() )
+    IQTREE ( STRIPR.out.locus.map{it[1]}.collect() )
     
 
     // Collate and save software versions
