@@ -6,15 +6,15 @@ include {GNU_SORT as GNU_SORT2} from '../../modules/nf-core/gnu/sort/main'
 workflow PREPARE_REFERENCE {
 
     take:
-    ch_genome
-    ch_probes
+    ch_reference // value channel of path to reference fasta
+    ch_probes // value channel of path to probe fasta
 
     main:
 
     ch_versions = Channel.empty()
 
     // make reference genome blast db
-    BLAST_MAKEBLASTDB ([[id: ch_genome.baseName], ch_genome])
+    BLAST_MAKEBLASTDB ([[id: ch_reference.baseName], ch_reference])
     ch_versions = ch_versions.mix(BLAST_MAKEBLASTDB.out.versions.first())
 
     // blastn probes to reference genome
@@ -30,8 +30,8 @@ workflow PREPARE_REFERENCE {
     ch_versions = ch_versions.mix(GNU_SORT2.out.versions.first())
 
     emit:
-    db = BLAST_MAKEBLASTDB.out.db.first()
-    blast = GNU_SORT2.out.sorted.first()
+    db       = BLAST_MAKEBLASTDB.out.db
+    blast    = GNU_SORT2.out.sorted
     versions = ch_versions
 }
 

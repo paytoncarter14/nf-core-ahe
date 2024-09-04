@@ -6,7 +6,7 @@ process SPLITLOCI {
 
     input:
     val(locus)
-    path(fasta)
+    path(fasta), stageAs: 'alignments/*'
 
     output:
     tuple val(meta), path("*.fa"), emit: locus
@@ -17,6 +17,6 @@ process SPLITLOCI {
     script:
     meta = [id: locus]
     """
-    grep --no-group-separator -h -A1 "^>${locus}" *.fa > ${locus}.fa 
+    grep --no-group-separator -h -A1 "^>${locus}:" alignments/*.fa > ${locus}.fa 
     """
 }
