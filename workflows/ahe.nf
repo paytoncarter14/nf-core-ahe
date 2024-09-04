@@ -1,84 +1,39 @@
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
+include {AHE_ASSEMBLY     } from '../subworkflows/local/ahe_assembly'
+include {PREPARE_REFERENCE} from '../subworkflows/local/prepare_reference'
 
-// Subworkflows
-include { AHE_ASSEMBLY           } from '../subworkflows/local/ahe_assembly/main'
+include {FASTP    } from '../modules/nf-core/fastp/main'
+include {GETLOCI  } from '../modules/local/getloci'
+include {SPLITLOCI} from '../modules/local/splitloci'
+include {STRIPLOCI} from '../modules/local/striploci'
+include {MAFFT    } from '../modules/nf-core/mafft/main'
+include {STRIPR   } from '../modules/local/stripr'
+include {IQTREE   } from '../modules/local/iqtree'
 
-// Modules
-include { MULTIQC                } from '../modules/nf-core/multiqc/main'
-include { FASTP                  } from '../modules/nf-core/fastp/main'
-include { BLAST_MAKEBLASTDB      } from '../modules/nf-core/blast/makeblastdb/main'
-include { BLAST_BLASTN           } from '../modules/nf-core/blast/blastn/main'
-include { GNU_SORT               } from '../modules/nf-core/gnu/sort/main'
-include { GNU_SORT as GNU_SORT2  } from '../modules/nf-core/gnu/sort/main'
-include { GETLOCI                } from '../modules/local/getloci'
-include { SPLITLOCI              } from '../modules/local/splitloci'
-include { STRIPLOCI              } from '../modules/local/striploci'
-include { MAFFT                  } from '../modules/nf-core/mafft/main'
-include { STRIPR                 } from '../modules/local/stripr'
-include { IQTREE                 } from '../modules/local/iqtree'
-
-// Boilerplate
-include { paramsSummaryMap       } from 'plugin/nf-validation'
-include { paramsSummaryMultiqc   } from '../subworkflows/nf-core/utils_nfcore_pipeline'
-include { softwareVersionsToYAML } from '../subworkflows/nf-core/utils_nfcore_pipeline'
-include { methodsDescriptionText } from '../subworkflows/local/utils_nfcore_ahe_pipeline'
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    RUN MAIN WORKFLOW
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/
+include {softwareVersionsToYAML} from '../subworkflows/nf-core/utils_nfcore_pipeline'
 
 workflow AHE {
 
     take:
-    ch_samplesheet // channel: samplesheet read in from --input
+    ch_samplesheet
 
     main:
 
     ch_versions = Channel.empty()
-    ch_multiqc_files = Channel.empty()
+    ch_reference = file(params.reference)
+    ch_probes = file(params.probes)
 
-    // MODULE: fastp
-    FASTP (
-        ch_samplesheet,
-        [],
-        false,
-        false
-    )
-    ch_multiqc_files = ch_multiqc_files.mix(FASTP.out.json.collect{it[1]})
+    // subworkflow: prepare_reference
+    PREPARE_REFERENCE (ch_reference, ch_probes)
+
+    // filter adapters, gather sequencing qc with fastp
+    FASTP (ch_samplesheet, [], false, false)
     ch_versions = ch_versions.mix(FASTP.out.versions.first())
 
-    // make reference genome blast db
-    BLAST_MAKEBLASTDB ( Channel.fromPath(params.genome_db).map{[[id: it.baseName], it]} )
-    ch_versions = ch_versions.mix(BLAST_MAKEBLASTDB.out.versions.first())
-
-    // blastn probes to reference genome
-    BLAST_BLASTN ( Channel.fromPath(params.probes).map{[[id: it.baseName], it]}, BLAST_MAKEBLASTDB.out.db )
-    ch_versions = ch_versions.mix(BLAST_BLASTN.out.versions.first())
-
-    // sort probe/reference hits by bitscore
-    GNU_SORT ( BLAST_BLASTN.out.txt )
-    ch_versions = ch_versions.mix(GNU_SORT.out.versions.first())
-
-    // keep only best probe/reference hit by bitscore
-    GNU_SORT2 (GNU_SORT.out.sorted)
-    ch_versions = ch_versions.mix(GNU_SORT2.out.versions.first())
-
     // subworkflow: ahe_assembly
-    AHE_ASSEMBLY (
-        FASTP.out.reads,
-        params.probes,
-        BLAST_MAKEBLASTDB.out.db.first(),
-        GNU_SORT2.out.sorted.first()
-    )
+    AHE_ASSEMBLY (FASTP.out.reads, ch_probes, PREPARE_REFERENCE.out.db, PREPARE_REFERENCE.out.blast)
 
     // get loci names
-    GETLOCI ( Channel.fromPath(params.probes) )
+    GETLOCI (ch_probes)
 
     // split orthologs into one fasta per locus
     SPLITLOCI ( GETLOCI.out.loci.splitCsv().map{it[0]}, AHE_ASSEMBLY.out.probe_orthologs.map{it[1]}.collect() )
@@ -95,7 +50,6 @@ workflow AHE {
     // iqtree
     IQTREE ( STRIPR.out.locus.map{it[1]}.collect() )
     
-
     // Collate and save software versions
     softwareVersionsToYAML(ch_versions)
         .collectFile(
@@ -105,50 +59,6 @@ workflow AHE {
             newLine: true
         ).set { ch_collated_versions }
 
-    // MODULE: MultiQC and template boilerplate
-    ch_multiqc_config        = Channel.fromPath(
-        "$projectDir/assets/multiqc_config.yml", checkIfExists: true)
-    ch_multiqc_custom_config = params.multiqc_config ?
-        Channel.fromPath(params.multiqc_config, checkIfExists: true) :
-        Channel.empty()
-    ch_multiqc_logo          = params.multiqc_logo ?
-        Channel.fromPath(params.multiqc_logo, checkIfExists: true) :
-        Channel.empty()
-
-    summary_params      = paramsSummaryMap(
-        workflow, parameters_schema: "nextflow_schema.json")
-    ch_workflow_summary = Channel.value(paramsSummaryMultiqc(summary_params))
-
-    ch_multiqc_custom_methods_description = params.multiqc_methods_description ?
-        file(params.multiqc_methods_description, checkIfExists: true) :
-        file("$projectDir/assets/methods_description_template.yml", checkIfExists: true)
-    ch_methods_description                = Channel.value(
-        methodsDescriptionText(ch_multiqc_custom_methods_description))
-
-    ch_multiqc_files = ch_multiqc_files.mix(
-        ch_workflow_summary.collectFile(name: 'workflow_summary_mqc.yaml'))
-    ch_multiqc_files = ch_multiqc_files.mix(ch_collated_versions)
-    ch_multiqc_files = ch_multiqc_files.mix(
-        ch_methods_description.collectFile(
-            name: 'methods_description_mqc.yaml',
-            sort: true
-        )
-    )
-
-    MULTIQC (
-        ch_multiqc_files.collect(),
-        ch_multiqc_config.toList(),
-        ch_multiqc_custom_config.toList(),
-        ch_multiqc_logo.toList()
-    )
-
     emit:
-    multiqc_report = MULTIQC.out.report.toList() // channel: /path/to/multiqc_report.html
-    versions       = ch_versions                 // channel: [ path(versions.yml) ]
+    versions = ch_versions
 }
-
-/*
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    THE END
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-*/

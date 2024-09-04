@@ -1,30 +1,24 @@
-// TODO nf-core: If in doubt look at other nf-core/subworkflows to see how we are doing things! :)
-//               https://github.com/nf-core/modules/tree/master/subworkflows
-//               You can also ask for help via your pull request or on the #subworkflows channel on the nf-core Slack workspace:
-//               https://nf-co.re/join
-// TODO nf-core: A subworkflow SHOULD import at least two modules
-
-include { SPADES            } from '../../../modules/nf-core/spades/main'
-include { VSEARCH_CLUSTER   } from '../../../modules/nf-core/vsearch/cluster/main'
-include { VSEARCH_SORT      } from '../../../modules/nf-core/vsearch/sort/main'
-include { BLAST_MAKEBLASTDB } from '../../../modules/nf-core/blast/makeblastdb/main'
-include { BLAST_TBLASTX     } from '../../../modules/local/blast_tblastx/main'
+include { SPADES            } from '../../modules/nf-core/spades/main'
+include { VSEARCH_CLUSTER   } from '../../modules/nf-core/vsearch/cluster/main'
+include { VSEARCH_SORT      } from '../../modules/nf-core/vsearch/sort/main'
+include { BLAST_MAKEBLASTDB } from '../../modules/nf-core/blast/makeblastdb/main'
+include { BLAST_TBLASTX     } from '../../modules/local/blast_tblastx/main'
 include { BLAST_TBLASTX
-          as BLAST_TBLASTX2 } from '../../../modules/local/blast_tblastx/main'
-include { BITSCOREFILTER    } from '../../../modules/local/bitscorefilter/main'
-include { FASTASINGLELINE   } from '../../../modules/local/fastasingleline/main'
-include { BLASTTOBED        } from '../../../modules/local/blasttobed/main'
-include { BEDTOOLS_GETFASTA } from '../../../modules/nf-core/bedtools/getfasta/main'
-include { SIMPLECAT         } from '../../../modules/local/simplecat/main'
+          as BLAST_TBLASTX2 } from '../../modules/local/blast_tblastx/main'
+include { BITSCOREFILTER    } from '../../modules/local/bitscorefilter/main'
+include { FASTASINGLELINE   } from '../../modules/local/fastasingleline/main'
+include { BLASTTOBED        } from '../../modules/local/blasttobed/main'
+include { BEDTOOLS_GETFASTA } from '../../modules/nf-core/bedtools/getfasta/main'
+include { SIMPLECAT         } from '../../modules/local/simplecat/main'
 include { GNU_SORT
-          as GNU_SORT3      } from '../../../modules/nf-core/gnu/sort/main'
+          as GNU_SORT3      } from '../../modules/nf-core/gnu/sort/main'
 include { GNU_SORT
-          as GNU_SORT4      } from '../../../modules/nf-core/gnu/sort/main'
-include { ORTHOLOGFILTER    } from '../../../modules/local/orthologfilter/main'
+          as GNU_SORT4      } from '../../modules/nf-core/gnu/sort/main'
+include { ORTHOLOGFILTER    } from '../../modules/local/orthologfilter/main'
 include { BEDTOOLS_GETFASTA
-          as ORTHOLOGS_PROBEGETFASTA } from '../../../modules/nf-core/bedtools/getfasta/main'
+          as ORTHOLOGS_PROBEGETFASTA } from '../../modules/nf-core/bedtools/getfasta/main'
 include { BEDTOOLS_GETFASTA
-          as ORTHOLOGS_FULLGETFASTA } from '../../../modules/nf-core/bedtools/getfasta/main'
+          as ORTHOLOGS_FULLGETFASTA } from '../../modules/nf-core/bedtools/getfasta/main'
 
 
 workflow AHE_ASSEMBLY {
